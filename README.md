@@ -345,7 +345,7 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 
 ### Option B — ROM Chip Donor Transplant
 > Theoretically possible, but practically destructive.  
-> Requires sourcing an identical functional Pokémon Gold (EUR, DMGKGDU10-0) cartridge as a donor. The ROM transplant requires hot-air removal of the donor chip, precision re-balling, and reflow onto the target board — a destructive operation on a functional cartridge. Only warranted for exceptional sentimental or collector value cases.
+> Requires sourcing an identical functional Pokémon Gold (EUR, DMGKGDU10-0) cartridge as a donor. The ROM transplant requires hot-air removal of the donor chip, cleaning and tinning the leads, and reflowing onto the target board — a destructive operation on a functional cartridge. Only warranted for exceptional sentimental or collector value cases.
 
 ### Option C — Flash Replacement Module
 > Niche -- no verified off-the-shelf solution for this footprint.  
