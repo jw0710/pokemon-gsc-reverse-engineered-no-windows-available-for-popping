@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔬 DMG-KGDU10 — *"No Windows Available for Popping"*
+# DMG-KGDU10 — *"No Windows Available for Popping"*
 ### Forensic Hardware Failure Analysis · Pokémon Gold · Game Boy Color Cartridge
 
 ---
@@ -69,9 +69,9 @@ At the time of writing, **no prior technical documentation of this specific fail
 | **Region / Destination** | EUR (`0x01`) |
 | **ROM Version Byte** | `0x00` |
 | **Licensee** | Nintendo (`0x3031`) |
-| **Header Checksum** | `0x4C` ✅ |
+| **Header Checksum** | `0x4C` ok |
 | **Expected Global Checksum** | `0xDC97` |
-| **Measured Global Checksum** | `0xDC97` ✅ / `0xF004` ❌ (intermittent) |
+| **Measured Global Checksum** | `0xDC97` ok / `0xF004` no (intermittent) |
 
 ---
 
@@ -146,14 +146,14 @@ Session 7 — Binary diff analysis (invalid vs. reference dump)
 
 | Component | Action Taken | Result | Fault Ruled Out |
 |---|---|---|---|
-| Edge connector | Cleaned (IPA + glass fibre) | Error persists | ✅ |
-| PCB traces | Optical + electrical verification | No faults found | ✅ |
-| SMD capacitors | 100% replaced from verified stock | Error persists | ✅ |
-| SMD resistors | 100% replaced from verified stock | Error persists | ✅ |
-| MBC3 | Replaced from donor stock | Error persists | ✅ |
-| SRAM | Replaced | Error persists | ✅ |
-| Full PCB | Donor board substitution — ROM transferred | **Error migrates with ROM** | ✅ PCB ruled out |
-| **ROM chip** | Cannot replace (Mask-ROM) | **Confirmed defect origin** | ❌ **FAULT SOURCE** |
+| Edge connector | Cleaned (IPA + glass fibre) | Error persists | ok |
+| PCB traces | Optical + electrical verification | No faults found | ok |
+| SMD capacitors | 100% replaced from verified stock | Error persists | ok |
+| SMD resistors | 100% replaced from verified stock | Error persists | ok |
+| MBC3 | Replaced from donor stock | Error persists | ok |
+| SRAM | Replaced | Error persists | ok |
+| Full PCB | Donor board substitution — ROM transferred | **Error migrates with ROM** | ok -- PCB ruled out |
+| **ROM chip** | Cannot replace (Mask-ROM) | **Confirmed defect origin** | FAULT SOURCE |
 
 The PCB-swap test (Session 5) is the definitive isolation step. With every component replaced or verified except the ROM chip, and the error following the ROM across two independent PCB assemblies, the ROM is confirmed as the sole fault source.
 
@@ -169,14 +169,14 @@ All header fields are **identical** between the invalid and reference dumps — 
 
 | Field | Invalid Dump | Valid Reference | Match |
 |---|---|---|---|
-| Title | `POKEMON_GLD` | `POKEMON_GLD` | ✅ |
-| CGB Flag | `0x80` | `0x80` | ✅ |
-| Cart Type | `0x10` (MBC3+RAM+TIMER) | `0x10` | ✅ |
-| ROM Size | `0x06` (2 MiB) | `0x06` | ✅ |
-| Version | `0x00` | `0x00` | ✅ |
-| Header Checksum | `0x4C` | `0x4C` | ✅ |
-| **Global Checksum** | **`0xDC97`** (2/4 dumps) | **`0xDC97`** | ⚠️ intermittent |
-| **Entry Point** | **`F3 C3 C6 05`** | **`00 C3 C6 05`** | ❌ **DIFFERS** |
+| Title | `POKEMON_GLD` | `POKEMON_GLD` | ok |
+| CGB Flag | `0x80` | `0x80` | ok |
+| Cart Type | `0x10` (MBC3+RAM+TIMER) | `0x10` | ok |
+| ROM Size | `0x06` (2 MiB) | `0x06` | ok |
+| Version | `0x00` | `0x00` | ok |
+| Header Checksum | `0x4C` | `0x4C` | ok |
+| **Global Checksum** | **`0xDC97`** (2/4 dumps) | **`0xDC97`** | intermittent (see notes) |
+| **Entry Point** | **`F3 C3 C6 05`** | **`00 C3 C6 05`** | DIFFERS |
 
 > **Note on Entry Point:** The first byte of the entry point vector differs — `0xF3` (DI — Disable Interrupts) vs. `0x00` (NOP). This is the first byte fetched by the CPU on boot and its corruption is a direct contributor to the subsequent execution fault chain.
 
@@ -184,10 +184,10 @@ All header fields are **identical** between the invalid and reference dumps — 
 
 | Dump # | Global Checksum | Valid | Notes |
 |---|---|---|---|
-| 1 | `0xF004` | ❌ | Invalid |
-| 2 | `0xF004` | ❌ | Invalid — identical to Dump 1 |
-| 3 | `0xDC97` | ✅ | Valid |
-| 4 | `0xDC97` | ✅ | Valid — identical to Dump 3 |
+| 1 | `0xF004` | no | Invalid |
+| 2 | `0xF004` | no | Invalid — identical to Dump 1 |
+| 3 | `0xDC97` | ok | Valid |
+| 4 | `0xDC97` | ok | Valid — identical to Dump 3 |
 
 50% valid / 50% invalid under zero-variable conditions. The consistent `0xF004` value (not random variance) and the subsequent binary analysis reframe this as **intermittent address resolution**, not random bit noise.
 
@@ -341,18 +341,18 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 ## 9. Repairability Assessment
 
 ### Option A — Standard Component Replacement
-> ❌ **Not applicable.** All standard-replaceable components verified or substituted. None affect the fault.
+> Not applicable. All standard-replaceable components verified or substituted. None affect the fault.
 
 ### Option B — ROM Chip Donor Transplant
-> ⚠️ **Theoretically possible. Practically destructive.**  
+> Theoretically possible, but practically destructive.  
 > Requires sourcing an identical functional Pokémon Gold (EUR, DMGKGDU10-0) cartridge as a donor. The ROM transplant requires hot-air removal of the donor chip, precision re-balling, and reflow onto the target board — a destructive operation on a functional cartridge. Only warranted for exceptional sentimental or collector value cases.
 
 ### Option C — Flash Replacement Module
-> ⚠️ **Niche — no verified off-the-shelf solution for this footprint.**  
+> Niche -- no verified off-the-shelf solution for this footprint.  
 > Custom adapter PCBs replacing Mask-ROM with compatible Flash exist in the modding community for some Game Boy cartridge types. No confirmed solution for the specific DMGKGDU10-0 ROM footprint was identified. Would require custom PCB design and a compatible Flash IC with matching bus timing.
 
 ### Option D — Documentation and Return
-> ✅ **Recommended.**  
+> Recommended.  
 > The cartridge is beyond economical repair. The fault is a natural wear-out failure mode of a 25-year-old semiconductor component, attributable to material degradation over service life. No prior repair attempts by the owner contributed to the fault.
 
 ### Summary Verdict
@@ -376,11 +376,11 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 
 | Source | Year | Content | Root Cause Identified |
 |---|---|---|---|
-| Glitch City Laboratories forum | 2010 | Single thread, error string reported | ❌ None |
-| Reddit r/Gameboy | Various | Anecdotal mentions, no analysis | ❌ None |
-| Reddit r/GameboyRepair | Various | Isolated reports, unresolved | ❌ None |
-| GameBoy Forum communities | Various | Rare mentions | ❌ None |
-| **This repository** | **2025** | **Full forensic analysis** | **✅ Stuck A0–A7** |
+| Glitch City Laboratories forum | 2010 | Single thread, error string reported | none |
+| Reddit r/Gameboy | Various | Anecdotal mentions, no analysis | none |
+| Reddit r/GameboyRepair | Various | Isolated reports, unresolved | none |
+| GameBoy Forum communities | Various | Rare mentions | none |
+| **This repository** | **2025** | **Full forensic analysis** | **Stuck A0–A7** |
 
 ### Why This Error Is Under-Documented
 
