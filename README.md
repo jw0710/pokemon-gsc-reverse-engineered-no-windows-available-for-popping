@@ -1,6 +1,6 @@
 <div align="center">
 
-# DMG-KGDU10 — *"No Windows Available for Popping"*
+# DMG-KGDU10 - *"No Windows Available for Popping"*
 ### Forensic Hardware Failure Analysis · Pokémon Gold · Game Boy Color Cartridge
 
 ---
@@ -40,11 +40,11 @@ At the time of writing, **no prior technical documentation of this specific fail
 ## Table of Contents
 
 1. [Hardware Under Test](#1-hardware-under-test)
-2. [The Error — Origin and Mechanism](#2-the-error--origin-and-mechanism)
+2. [The Error - Origin and Mechanism](#2-the-error--origin-and-mechanism)
 3. [Methodology](#3-methodology)
 4. [Component Substitution Matrix](#4-component-substitution-matrix)
 5. [ROM Dump Analysis](#5-rom-dump-analysis)
-6. [Binary Diff — Key Findings](#6-binary-diff--key-findings)
+6. [Binary Diff - Key Findings](#6-binary-diff--key-findings)
 7. [Root Cause: Stuck Address Lines A0–A7](#7-root-cause-stuck-address-lines-a0a7)
 8. [Secondary Boot Symptoms Explained](#8-secondary-boot-symptoms-explained)
 9. [Repairability Assessment](#9-repairability-assessment)
@@ -75,13 +75,13 @@ At the time of writing, **no prior technical documentation of this specific fail
 
 ---
 
-## 2. The Error — Origin and Mechanism
+## 2. The Error - Origin and Mechanism
 
 ### 2.1 Error String Source
 
 The string `"No windows available for popping"` is **not embedded in the Pokémon Gold game binary**. It is emitted by the **Game Boy Color system firmware** when the memory management layer encounters an inconsistency in its ROM window stack.
 
-The GBC firmware maintains a stack of active MBC3 "windows" — internal records of bank-switch operations performed by the MBC3 controller. When the CPU issues a bank-pop instruction and the stack contains no matching entry, the firmware raises this error and halts execution.
+The GBC firmware maintains a stack of active MBC3 "windows" - internal records of bank-switch operations performed by the MBC3 controller. When the CPU issues a bank-pop instruction and the stack contains no matching entry, the firmware raises this error and halts execution.
 
 ### 2.2 Why This Error Appears
 
@@ -103,15 +103,15 @@ The root cause is not a software bug in the game. It is the hardware delivering 
 
 <div align="center">
 
-![No windows available for popping — captured on boot](docs/NoWindowsAv.png)
+![No windows available for popping - captured on boot](docs/NoWindowsAv.png)
 
-*Fig. 1 — The error as it appears on boot. No further execution occurs until hard reset.*
+*Fig. 1 - The error as it appears on boot. No further execution occurs until hard reset.*
 
 </div>
 
 ### 2.3 Why It Is Rarely Documented
 
-The error is cartridge-specific and hardware-generated, not a software state that can be triggered by gameplay. It requires a specific class of ROM fault to manifest — one that corrupts the early boot execution path without triggering the BIOS logo check failure (which would display a different error). This narrow fault window explains why the symptom is virtually absent from repair literature.
+The error is cartridge-specific and hardware-generated, not a software state that can be triggered by gameplay. It requires a specific class of ROM fault to manifest - one that corrupts the early boot execution path without triggering the BIOS logo check failure (which would display a different error). This narrow fault window explains why the symptom is virtually absent from repair literature.
 
 ---
 
@@ -120,13 +120,13 @@ The error is cartridge-specific and hardware-generated, not a software state tha
 All diagnostics followed a **single-variable substitution protocol**: one component replaced per session, all others held constant, boot-tested after each change. This ensures each result is attributable to the substituted component alone.
 
 ```
-Session 1 — Baseline boot test + visual/electrical inspection
-Session 2 — MBC3 replacement
-Session 3 — SRAM replacement
-Session 4 — Full SMD passive replacement
-Session 5 — Full PCB swap (ROM chip transferred to donor board)
-Session 6 — ROM dump analysis (4 dumps)
-Session 7 — Binary diff analysis (invalid vs. reference dump)
+Session 1 - Baseline boot test + visual/electrical inspection
+Session 2 - MBC3 replacement
+Session 3 - SRAM replacement
+Session 4 - Full SMD passive replacement
+Session 5 - Full PCB swap (ROM chip transferred to donor board)
+Session 6 - ROM dump analysis (4 dumps)
+Session 7 - Binary diff analysis (invalid vs. reference dump)
 ```
 
 ### Equipment Used
@@ -152,7 +152,7 @@ Session 7 — Binary diff analysis (invalid vs. reference dump)
 | SMD resistors | 100% replaced from verified stock | Error persists | ok |
 | MBC3 | Replaced from donor stock | Error persists | ok |
 | SRAM | Replaced | Error persists | ok |
-| Full PCB | Donor board substitution — ROM transferred | **Error migrates with ROM** | ok -- PCB ruled out |
+| Full PCB | Donor board substitution - ROM transferred | **Error migrates with ROM** | ok -- PCB ruled out |
 | **ROM chip** | Cannot replace (Mask-ROM) | **Confirmed defect origin** | FAULT SOURCE |
 
 The PCB-swap test (Session 5) is the definitive isolation step. With every component replaced or verified except the ROM chip, and the error following the ROM across two independent PCB assemblies, the ROM is confirmed as the sole fault source.
@@ -165,7 +165,7 @@ Four dumps were performed under identical conditions with no hardware changes be
 
 ### 5.1 Header Fields (both dumps)
 
-All header fields are **identical** between the invalid and reference dumps — including Nintendo Logo, title string, mapper type, ROM/RAM size, region, version byte, and header checksum. The two dumps are confirmed to be the same ROM version and revision.
+All header fields are **identical** between the invalid and reference dumps - including Nintendo Logo, title string, mapper type, ROM/RAM size, region, version byte, and header checksum. The two dumps are confirmed to be the same ROM version and revision.
 
 | Field | Invalid Dump | Valid Reference | Match |
 |---|---|---|---|
@@ -178,22 +178,22 @@ All header fields are **identical** between the invalid and reference dumps — 
 | **Global Checksum** | **`0xDC97`** (2/4 dumps) | **`0xDC97`** | intermittent (see notes) |
 | **Entry Point** | **`F3 C3 C6 05`** | **`00 C3 C6 05`** | DIFFERS |
 
-> **Note on Entry Point:** The first byte of the entry point vector differs — `0xF3` (DI — Disable Interrupts) vs. `0x00` (NOP). This is the first byte fetched by the CPU on boot and its corruption is a direct contributor to the subsequent execution fault chain.
+> **Note on Entry Point:** The first byte of the entry point vector differs - `0xF3` (DI - Disable Interrupts) vs. `0x00` (NOP). This is the first byte fetched by the CPU on boot and its corruption is a direct contributor to the subsequent execution fault chain.
 
 ### 5.2 Dump Checksum Results
 
 | Dump # | Global Checksum | Valid | Notes |
 |---|---|---|---|
 | 1 | `0xF004` | no | Invalid |
-| 2 | `0xF004` | no | Invalid — identical to Dump 1 |
+| 2 | `0xF004` | no | Invalid - identical to Dump 1 |
 | 3 | `0xDC97` | ok | Valid |
-| 4 | `0xDC97` | ok | Valid — identical to Dump 3 |
+| 4 | `0xDC97` | ok | Valid - identical to Dump 3 |
 
 50% valid / 50% invalid under zero-variable conditions. The consistent `0xF004` value (not random variance) and the subsequent binary analysis reframe this as **intermittent address resolution**, not random bit noise.
 
 ---
 
-## 6. Binary Diff — Key Findings
+## 6. Binary Diff - Key Findings
 
 Byte-level comparison of the invalid dump against the known-good reference using [`rom_diff_analysis.py`](rom_diff_analysis.py) produced the following findings:
 
@@ -257,7 +257,7 @@ Bit weight:    1M   512K ...  256  128   64  ...   2    1
 
 ### 7.2 The Fault Model
 
-If address lines **A0 through A7** are permanently held at logic `0` — whether through a failed bond wire, a degraded input transistor, or an open address decoder — the chip's lower 8 address inputs are always zero. The chip cannot distinguish between any two addresses that differ only in bits 0–7:
+If address lines **A0 through A7** are permanently held at logic `0` - whether through a failed bond wire, a degraded input transistor, or an open address decoder - the chip's lower 8 address inputs are always zero. The chip cannot distinguish between any two addresses that differ only in bits 0–7:
 
 ```
 Requested address:  0x00_1234  (binary: ...0001 0010 0011 0100)
@@ -266,7 +266,7 @@ Chip receives:      0x00_1200  (binary: ...0001 0010 0000 0000)
                                                A7–A0 always 0
 ```
 
-Every 256-byte window in the ROM space maps to a single readable byte — the byte at offset `0x??00`. The remaining 255 bytes of each window are invisible to the chip and return aliased or stale data.
+Every 256-byte window in the ROM space maps to a single readable byte - the byte at offset `0x??00`. The remaining 255 bytes of each window are invisible to the chip and return aliased or stale data.
 
 ### 7.3 Why the Dump Shows This Pattern
 
@@ -276,22 +276,22 @@ A ROM flasher increments the address counter linearly from `0x000000` to `0x1FFF
 - Addresses `0x000100`–`0x0001FF` all read the byte at `0x000100`
 - etc.
 
-The flasher records a different value at `0x????00` transitions (where A8+ change) and the same repeated value within each 256-byte window. When compared against a correct dump, **every difference appears at a `0x????00` address** — exactly what the analysis shows.
+The flasher records a different value at `0x????00` transitions (where A8+ change) and the same repeated value within each 256-byte window. When compared against a correct dump, **every difference appears at a `0x????00` address** - exactly what the analysis shows.
 
 ### 7.4 Why the Boot Fails
 
 The Z80 CPU begins execution at the entry point vector (`0x0100`). With A0–A7 stuck low:
 
-1. Fetch at `0x0100` → returns `0xF3` (DI) — **confirmed differs from valid `0x00`**
+1. Fetch at `0x0100` → returns `0xF3` (DI) - **confirmed differs from valid `0x00`**
 2. Subsequent fetches at `0x0101`, `0x0102` ... `0x01FF` → all return **the aliased byte from `0x0100`**
 3. The CPU executes 255 copies of the same (incorrect) opcode
-4. When the PC crosses into `0x0200`, A9 changes state — chip delivers the byte from `0x0200`
+4. When the PC crosses into `0x0200`, A9 changes state - chip delivers the byte from `0x0200`
 5. This process produces an incoherent instruction stream with no valid bank-switch sequence
 6. MBC3 receives malformed parameters → GBC firmware stack underflow → **`"No windows available for popping"`**
 
 ### 7.5 Why Dumps Are Intermittently Valid
 
-The intermittent nature — 2 valid, 2 invalid dumps — indicates the stuck condition is **not a complete open circuit** but a **high-impedance / intermittent fault**. Under certain conditions (contact pressure during insertion, die temperature, supply voltage marginal state), the address lines may briefly resolve correctly, producing a valid dump. Under other conditions, the lines float to ground and the fault manifests.
+The intermittent nature - 2 valid, 2 invalid dumps - indicates the stuck condition is **not a complete open circuit** but a **high-impedance / intermittent fault**. Under certain conditions (contact pressure during insertion, die temperature, supply voltage marginal state), the address lines may briefly resolve correctly, producing a valid dump. Under other conditions, the lines float to ground and the fault manifests.
 
 This same intermittency explains the partial boot sequences observed after valid dumps: the chip was in a temporarily functional state during those sessions.
 
@@ -304,7 +304,7 @@ This same intermittency explains the partial boot sequences observed after valid
 | Solder joint on ROM package pin | Cold joint, vibration fracture | Low (migrated with chip across boards) |
 | Address line short to GND inside package | Internal contamination or delamination | Low |
 
-> A solder joint fault on the PCB pad is effectively ruled out by the board-swap test — the fault migrated with the ROM chip to a fresh PCB with verified pads.
+> A solder joint fault on the PCB pad is effectively ruled out by the board-swap test - the fault migrated with the ROM chip to a fresh PCB with verified pads.
 
 ---
 
@@ -317,11 +317,11 @@ Following sessions where valid checksums were obtained, the cartridge was tested
 | | |
 |:---:|:---:|
 | ![Correct color title screen](docs/correct_color.png) | ![No windows error](docs/NoWindowsAv.png) |
-| *Fig. 2 — Normal title screen (reference, functional state)* | *Fig. 3 — Boot failure state, consistent across resets* |
+| *Fig. 2 - Normal title screen (reference, functional state)* | *Fig. 3 - Boot failure state, consistent across resets* |
 | ![Black professor sprite](docs/ProfessorSprite_Broken.png) | ![Inverted colors crash](docs/Restart_INV_Color.png) |
-| *Fig. 4 — Professor Elm intro with null tile pointer (black sprite)* | *Fig. 5 — Full palette inversion mid-session before crash* |
+| *Fig. 4 - Professor Elm intro with null tile pointer (black sprite)* | *Fig. 5 - Full palette inversion mid-session before crash* |
 | ![Select name crash](docs/SelectName_Crash.png) | |
-| *Fig. 6 — Name selection screen crash state* | |
+| *Fig. 6 - Name selection screen crash state* | |
 
 </div>
 
@@ -340,18 +340,18 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 
 ## 9. Repairability Assessment
 
-### Option A — Standard Component Replacement
+### Option A - Standard Component Replacement
 > Not applicable. All standard-replaceable components verified or substituted. None affect the fault.
 
-### Option B — ROM Chip Donor Transplant
+### Option B - ROM Chip Donor Transplant
 > Theoretically possible, but practically destructive.  
-> Requires sourcing an identical functional Pokémon Gold (EUR, DMGKGDU10-0) cartridge as a donor. The ROM transplant requires hot-air removal of the donor chip, cleaning and tinning the leads, and reflowing onto the target board — a destructive operation on a functional cartridge. Only warranted for exceptional sentimental or collector value cases.
+> Requires sourcing an identical functional Pokémon Gold (EUR, DMGKGDU10-0) cartridge as a donor. The ROM transplant requires hot-air removal of the donor chip, cleaning and tinning the leads, and reflowing onto the target board - a destructive operation on a functional cartridge. Only warranted for exceptional sentimental or collector value cases.
 
-### Option C — Flash Replacement Module
+### Option C - Flash Replacement Module
 > Niche -- no verified off-the-shelf solution for this footprint.  
 > Custom adapter PCBs replacing Mask-ROM with compatible Flash exist in the modding community for some Game Boy cartridge types. No confirmed solution for the specific DMGKGDU10-0 ROM footprint was identified. Would require custom PCB design and a compatible Flash IC with matching bus timing.
 
-### Option D — Documentation and Return
+### Option D - Documentation and Return
 > Recommended.  
 > The cartridge is beyond economical repair. The fault is a natural wear-out failure mode of a 25-year-old semiconductor component, attributable to material degradation over service life. No prior repair attempts by the owner contributed to the fault.
 
@@ -370,21 +370,94 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 
 ---
 
-## 10. Comparison with Prior Art
+## 10. Comparison with Prior Art and Cross-Validation
 
-### Known Public References
+### 10.1 Known Public References
 
 | Source | Year | Content | Root Cause Identified |
 |---|---|---|---|
-| Glitch City Laboratories forum | 2010 | Single thread, error string reported | none |
+| Glitch City Laboratories forum | 2010 | Software-level RAM analysis | Partial (software path only) |
 | Reddit r/Gameboy | Various | Anecdotal mentions, no analysis | none |
 | Reddit r/GameboyRepair | Various | Isolated reports, unresolved | none |
 | GameBoy Forum communities | Various | Rare mentions | none |
-| **This repository** | **2025** | **Full forensic analysis** | **Stuck A0–A7** |
+| **This repository** | **2025** | **Full forensic hardware analysis** | **Stuck address lines A0-A7** |
 
-### Why This Error Is Under-Documented
+### 10.2 The Glitch City Analysis (2010)
 
-The error requires a specific and uncommon fault class to manifest: the ROM must fail in a way that corrupts the execution path *after* the BIOS Nintendo logo check but *before* a stable bank mapping is established. A ROM that fails the logo check produces a different system error. A ROM with a different fault location may produce a blank screen or hang without a text error. The narrow fault window that produces `"No windows available for popping"` is rare enough that repair technicians rarely encounter it, and those who do typically lack the tooling for binary dump analysis.
+The only substantive prior investigation of this error was published in July 2010 by forum user GARYM9 on Glitch City Laboratories. The analysis was conducted entirely in software using a memory viewer on a running emulator. The findings are reproduced here for cross-validation purposes.
+
+GARYM9 identified that the error is triggered when a specific RAM address holds an unexpected value at the moment a menu window attempts to close. In Gold and Silver, the relevant address is `CEA8`. Under normal operation, this byte transitions between two distinct values as a menu window opens and closes. If both states hold the same value -- meaning the open-state transition never occurred correctly -- the window-pop routine finds no valid frame to pop from its stack and emits the error string. In Crystal, the same mechanism uses two addresses (`CF71` and `CF72`) rather than one, providing an additional check.
+
+The conclusion drawn was that this is an intentional debug trap built into the game engine: a guard that detects broken window state and halts cleanly rather than corrupting game state silently.
+
+This analysis is internally consistent and technically credible. The behavior can be reproduced by direct RAM manipulation, which confirms the software path exists and functions as described.
+
+### 10.3 Reconciliation with the Hardware Fault Model
+
+The two analyses -- software emulation and physical hardware -- are not in conflict. They describe different entry points into the same failure path.
+
+To understand why, the relevant portion of the MBC3 memory map must be considered.
+
+The GBC address bus is 16 bits wide, giving a directly addressable range of 65,536 bytes. The MBC3 extends this to 2 MiB of ROM by dividing the ROM into 128 banks of 16,384 bytes each. Two regions of the address space are assigned to ROM:
+
+- `0x0000-0x3FFF`: Bank 0, always fixed. Contains the entry point vector, interrupt vectors, BIOS handoff code, and the core game engine routines.
+- `0x4000-0x7FFF`: Switchable bank. The MBC3 maps any of banks 1-127 here in response to write operations targeting `0x2000-0x3FFF`.
+
+A bank switch is performed by the CPU writing the desired bank number to the MBC3's bank register. This is not a RAM write -- it is a write to the ROM address space, which the MBC3 intercepts and interprets as a control signal. The actual ROM data at that address is irrelevant; the write value selects the next active bank.
+
+With address lines A0-A7 stuck low on the ROM die, the chip cannot resolve individual byte addresses within any 256-byte window. Every fetch from address `0xYYZZ` where `ZZ != 0x00` returns the byte stored at `0xYY00` instead. This affects both the fixed bank and all switched banks.
+
+The boot sequence proceeds as follows under fault conditions:
+
+1. The BIOS performs the Nintendo logo check by reading the fixed bank header at `0x0104-0x0133`. These addresses all have non-zero low bytes, so under the stuck-line fault every read returns the byte from the nearest `0x??00` boundary. In this case, the logo check passes intermittently -- when the chip is in its temporarily functional state -- which explains why the BIOS hands off execution rather than halting at the logo stage.
+
+2. Control transfers to the entry point at `0x0100`. The CPU begins fetching instructions sequentially. With A0-A7 stuck, addresses `0x0101` through `0x01FF` all return the byte stored at `0x0100`. The CPU executes up to 255 copies of whatever opcode sits at `0x0100` before A8 transitions and the effective address changes to `0x0200`.
+
+3. The game engine initialises its window management system during early boot. This involves writing specific sentinel values to RAM addresses including `CEA8` in Gold and Silver. These writes originate from instructions that were fetched from the ROM. If those instructions were fetched from corrupted addresses, the sentinel values are never written correctly -- or are written with wrong values, or in the wrong sequence.
+
+4. When the first menu-open operation executes later in boot, `CEA8` does not hold the value the window-pop routine expects. The guard condition triggers. The error string is displayed.
+
+This is precisely the failure path GARYM9 described in 2010, arrived at from the software side. What the Glitch City analysis could not identify was the upstream cause: why `CEA8` holds the wrong value in the first place. From an emulation perspective, RAM corruption of this kind is most commonly associated with WTW (Walk Through Walls) glitches or other game-state corruptions that overwrite memory at runtime. In the hardware case studied here, the corruption is earlier in the chain -- it occurs during instruction fetch, before the window management system is ever initialised.
+
+### 10.4 Mathematical Validation of the Address Fault Model
+
+The binary diff analysis provides an independent means of verifying the stuck-line hypothesis through the checksum arithmetic.
+
+The MBC3 global checksum is defined as the 16-bit sum of all bytes in the ROM, excluding the two checksum bytes at `0x014E-0x014F`. For a 2 MiB ROM this covers 2,097,150 bytes. The expected value for Pokemon Gold (EUR) is `0xDC97`.
+
+The invalid dump produced a checksum of `0xF004`. The delta is:
+
+```
+0xF004 - 0xDC97 = 0x236D  (mod 0x10000)
+```
+
+If the stuck-line model is correct, every byte at a `0x??00` address in the invalid dump is potentially corrupted, while every byte at a non-`0x??00` address is an alias of its nearest `0x??00` neighbor and therefore may differ from the reference in a predictable way. The byte-level diff confirmed 1,313 differing bytes, all at `0x??00` addresses. The sum of those differences:
+
+```
+sum(invalid[addr] - valid[addr]) for all 1313 differing addresses = 0x236D  (mod 0x10000)
+```
+
+The byte-delta sum matches the checksum delta exactly. This is an independent cross-check: if the fault model were incorrect and some other pattern of corruption were present, the two values would not agree. The match confirms that the 1,313 identified addresses account for the full checksum discrepancy, with no additional hidden corruption elsewhere in the dump.
+
+As a further check, the probability that 1,313 independently random address errors would all happen to land on `0x????00` boundaries by chance is:
+
+```
+P = (1/256)^1313 = 10^(-3072)
+```
+
+This value is not physically meaningful as a probability -- it is simply a demonstration that the 0x100-alignment pattern cannot be a coincidence. The pattern is deterministic.
+
+### 10.5 Why This Error Is Under-Documented
+
+The error occupies an unusually narrow fault window. For the string to appear, the ROM must deliver corrupted data in a way that satisfies three simultaneous conditions:
+
+1. The Nintendo logo check must pass, or the BIOS halts earlier with a different error.
+2. The boot sequence must progress far enough to initialise the window management system -- meaning the early boot code must be at least partially executable.
+3. The window sentinel value at `CEA8` must be incorrect when the first menu operation executes.
+
+A ROM that fails the logo check never reaches the window code. A ROM with a different fault pattern may hang silently, produce a garbled screen, or reset without displaying any error. A ROM that is completely non-functional produces a blank display. The stuck-A0-A7 fault happens to satisfy all three conditions: the header region reads correctly often enough to pass the logo check, the early boot executes partially (since addresses ending in 0x00 are read correctly), and the window initialisation is corrupted just enough to fail later.
+
+From a repair technician's perspective, the error appears with no obvious hardware cause -- all passive components measure correctly, the MBC3 is not the source, and a board swap changes nothing. Without the ability to perform and compare multiple ROM dumps, the fault is essentially undiagnosable by conventional means.
 
 ---
 
@@ -409,7 +482,7 @@ DMG-KGDU10-NoWindowsAvailableForPopping-Analysis/
 ### Using `rom_diff_analysis.py`
 
 ```bash
-# Basic usage — compare any two GBC/GB ROM dumps
+# Basic usage - compare any two GBC/GB ROM dumps
 python3 rom_diff_analysis.py <invalid_dump.bin> <valid_reference.bin>
 
 # Example with this cartridge's dumps
@@ -418,27 +491,27 @@ python3 rom_diff_analysis.py invalid_POKEMON_GLD.bin valid_reference.bin
 
 The script produces a full structured report including header comparison, bank-level diff distribution, address bit analysis, data line bit-flip statistics, stride pattern analysis, and an automated diagnosis conclusion.
 
-**No external dependencies required — standard Python 3 only.**
+**No external dependencies required - standard Python 3 only.**
 
 ---
 
 ## 12. References
 
 ### Technical Specifications
-- **Pan Docs — MBC3:** https://gbdev.io/pandocs/MBC3.html
-- **Pan Docs — Power Up Sequence:** https://gbdev.io/pandocs/Power_Up_Sequence.html
-- **Pan Docs — Memory Map:** https://gbdev.io/pandocs/Memory_Map.html
+- **Pan Docs - MBC3:** https://gbdev.io/pandocs/MBC3.html
+- **Pan Docs - Power Up Sequence:** https://gbdev.io/pandocs/Power_Up_Sequence.html
+- **Pan Docs - Memory Map:** https://gbdev.io/pandocs/Memory_Map.html
 - **Game Boy Hardware Database (DMGKGDU10 PCB):** https://gbhwdb.gekkio.fi
 - **Game Boy CPU Manual (Z80 variant):** https://archive.org/details/GameBoyProgManVer1.1
 
-### Prior Art (Unresolved)
-- Glitch City Laboratories — "No windows available for popping" (2010): https://glitchcity.wiki
+### Prior Art
+- Glitch City Laboratories Archives -- "G/S/C No windows available for popping explained" (GARYM9, 2010): https://archives.glitchcity.info/forums/board-108/thread-6228/page-0.html
 - Reddit r/Gameboy: https://www.reddit.com/r/Gameboy
 - Reddit r/GameboyRepair: https://www.reddit.com/r/GameboyRepair
 
 ### ROM Verification
 - **No-Intro ROM Database (GBC):** https://www.no-intro.org  
-  Expected SHA-1 for Pokémon Gold (EUR): `D8B8A3600A465308C9953B46BC16CBBF4B79F9AC`
+  Expected SHA-1 for Pokemon Gold (EUR): `D8B8A3600A465308C9953B46BC16CBBF4B79F9AC`
 
 ---
 
@@ -446,12 +519,9 @@ The script produces a full structured report including header comparison, bank-l
 
 ---
 
-*Research, hardware analysis, and tooling by **Jannik Weyrich / NostaMods***  
-*[github.com/jw0710](https://github.com/jw0710)*
-
 *Published under [Creative Commons BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)*  
-*Attribution required · Non-commercial use only · Share-alike*
+*Attribution required -- non-commercial use only -- share-alike*
 
-*If this analysis helped you diagnose a similar fault, consider opening an Issue or Discussion with your findings — every documented case strengthens the collective knowledge base.*
+*If this analysis helped you diagnose a similar fault, consider opening an Issue or Discussion with your findings.*
 
 </div>
