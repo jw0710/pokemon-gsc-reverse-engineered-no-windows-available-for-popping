@@ -28,12 +28,12 @@ This repository presents a complete forensic hardware analysis of a defective **
 No windows available for popping
 ```
 
-Through systematic component substitution across two independent PCB assemblies, electrical verification, and structured binary analysis of four ROM dumps, the fault was isolated and characterized at the semiconductor level. The initial hypothesis of a floating-bit Mask-ROM cell degradation was **disproved by quantitative dump analysis**, which revealed a structurally distinct failure mode: a **stuck-low address bus fault on lines A0–A7** of the ROM die.
+Through systematic component substitution across two independent PCB assemblies, electrical verification, and structured binary analysis of four ROM dumps, the fault was isolated to the Mask-ROM device and a probable address-resolution failure model was developed. The initial hypothesis of a floating-bit Mask-ROM cell degradation was reassessed following quantitative dump analysis, which revealed a highly structured and deterministic corruption pattern more consistent with a fault affecting the lower ROM address bits (A0-A7) than with random bit degradation.
 
-At the time of writing, **no prior technical documentation of this specific failure mode** exists in the public domain beyond a single unresolved thread on Glitch City Laboratories (2010) and isolated Reddit reports with no root-cause analysis. This repository is intended as a reproducible reference for hardware repair technicians and retro hardware researchers.
+At the time of writing, no prior technical documentation of this failure mode exists in the public domain beyond a single partially relevant thread on Glitch City Laboratories (2010) and isolated Reddit reports with no root-cause analysis. This repository is intended as a reproducible reference for hardware repair technicians and retro hardware researchers.
 
-> **Verdict: The cartridge is irreparable under standard workshop conditions.**  
-> The fault originates within the ROM die itself and cannot be resolved through any form of component substitution, reflowing, or PCB-level intervention.
+> **Verdict: The cartridge is irreparable under standard workshop conditions.**
+> The fault is internal to the ROM device and cannot be resolved through any form of component substitution, reflowing, or PCB-level intervention. The exact semiconductor-level mechanism remains unverified without destructive analysis.
 
 ---
 
@@ -45,7 +45,7 @@ At the time of writing, **no prior technical documentation of this specific fail
 4. [Component Substitution Matrix](#4-component-substitution-matrix)
 5. [ROM Dump Analysis](#5-rom-dump-analysis)
 6. [Binary Diff - Key Findings](#6-binary-diff--key-findings)
-7. [Root Cause: Stuck Address Lines A0–A7](#7-root-cause-stuck-address-lines-a0a7)
+7. [Probable Root Cause: Failure Affecting ROM Address Resolution](#7-probable-root-cause-failure-affecting-rom-address-resolution)
 8. [Secondary Boot Symptoms Explained](#8-secondary-boot-symptoms-explained)
 9. [Repairability Assessment](#9-repairability-assessment)
 10. [Comparison with Prior Art](#10-comparison-with-prior-art)
@@ -244,73 +244,82 @@ Bit flip frequency is uniform across all 8 data lines (D0–D7), with a spread o
 
 ---
 
-## 7. Root Cause: Stuck Address Lines A0–A7
+## 7. Probable Root Cause: Failure Affecting ROM Address Resolution
 
-### 7.1 How ROM Addressing Works
+### 7.1 Summary of Evidence
 
-A 2 MiB Mask-ROM requires 21 address inputs (A0–A20) to uniquely address every byte in its 2,097,152-byte space. These are physical pins on the chip package connected to the ROM die via bond wires. The MBC3 drives A13–A20 for bank selection; A0–A12 are driven directly by the CPU address bus.
+The fault was isolated to the Mask-ROM device through systematic component substitution and PCB migration testing. The observed corruption pattern remained associated with the ROM chip across two independent PCB assemblies, while all other components were either verified or replaced without affecting the symptom.
+
+Binary comparison between valid and invalid dumps identified 1,313 differing bytes distributed across 101 ROM banks. Every differing address was aligned to a 0x100 boundary, producing a highly structured and deterministic error pattern inconsistent with random bit degradation or data-line failure.
+
+### 7.2 How ROM Addressing Works
+
+A 2 MiB Mask-ROM requires 21 address inputs (A0-A20) to uniquely address every byte in its 2,097,152-byte space. These are physical pins on the chip package connected to the ROM die via bond wires. The MBC3 drives A13-A20 for bank selection; A0-A12 are driven directly by the CPU address bus.
 
 ```
 Address line:  A20  A19  ...  A8   A7   A6  ...  A1   A0
 Bit weight:    1M   512K ...  256  128   64  ...   2    1
 ```
 
-### 7.2 The Fault Model
+### 7.3 Most Consistent Fault Model
 
-If address lines **A0 through A7** are permanently held at logic `0` - whether through a failed bond wire, a degraded input transistor, or an open address decoder - the chip's lower 8 address inputs are always zero. The chip cannot distinguish between any two addresses that differ only in bits 0–7:
+The observed behaviour is most consistent with a fault affecting resolution of the lower ROM address bits (A0-A7). Under this model, accesses within each 256-byte address block may become aliased to a common address, causing deterministic corruption throughout the ROM space while preserving higher-order addressing. Such behaviour would explain:
+
+- The exclusive occurrence of differences at 0x100-aligned locations
+- The widespread distribution of corruption across 101 of 128 ROM banks
+- The absence of evidence for a stuck data line (uniform bit-flip distribution across D0-D7)
+- The intermittent transition between valid and invalid dumps
+
+To illustrate: if A0-A7 are not resolved correctly, the chip cannot distinguish between addresses within any 256-byte window. Every access to address `0xYYZZ` where `ZZ != 0x00` would instead read from `0xYY00`.
 
 ```
-Requested address:  0x00_1234  (binary: ...0001 0010 0011 0100)
-Chip receives:      0x00_1200  (binary: ...0001 0010 0000 0000)
-                                                     ↑↑↑↑↑↑↑↑
-                                               A7–A0 always 0
+Requested:  0x001234  (valid byte at this location in reference dump)
+Received:   0x001200  (aliased -- lower 8 address bits not resolved)
+                              ↑↑↑↑↑↑↑↑
+                        resolution failure
 ```
 
-Every 256-byte window in the ROM space maps to a single readable byte - the byte at offset `0x??00`. The remaining 255 bytes of each window are invisible to the chip and return aliased or stale data.
+The flasher increments the address counter linearly. Under this fault, addresses `0x000000`-`0x0000FF` all return the byte at `0x000000`, addresses `0x000100`-`0x0001FF` return the byte at `0x000100`, and so on. When compared against a correct dump, every difference falls at a `0x????00` address -- exactly what the analysis shows.
 
-### 7.3 Why the Dump Shows This Pattern
+While the available evidence strongly supports this model, the exact physical failure mechanism cannot be conclusively determined without destructive semiconductor analysis.
 
-A ROM flasher increments the address counter linearly from `0x000000` to `0x1FFFFF`. With A0–A7 stuck:
+### 7.4 Boot Failure Under This Model
 
-- Addresses `0x000000`–`0x0000FF` all read the byte at `0x000000`
-- Addresses `0x000100`–`0x0001FF` all read the byte at `0x000100`
-- etc.
+The Z80 CPU begins execution at the entry point vector (`0x0100`). Under the proposed fault model:
 
-The flasher records a different value at `0x????00` transitions (where A8+ change) and the same repeated value within each 256-byte window. When compared against a correct dump, **every difference appears at a `0x????00` address** - exactly what the analysis shows.
+1. Fetch at `0x0100` returns `0xF3` (DI) -- confirmed to differ from the valid value `0x00`
+2. Subsequent fetches at `0x0101` through `0x01FF` all alias to the byte at `0x0100`
+3. The CPU executes up to 255 copies of the same aliased opcode before A8 transitions
+4. This produces an incoherent instruction stream with no valid bank-switch sequence
+5. The MBC3 receives malformed parameters, the GBC firmware stack underflows, and the system emits `"No windows available for popping"`
 
-### 7.4 Why the Boot Fails
+### 7.5 Intermittency
 
-The Z80 CPU begins execution at the entry point vector (`0x0100`). With A0–A7 stuck low:
+The 50% valid dump rate -- two valid, two invalid, under otherwise identical conditions -- indicates the fault is not a complete open circuit but an intermittent or high-impedance condition. Under certain states (die temperature, contact conditions, supply margin) the address lines resolve correctly and the chip delivers a valid dump. Under other conditions the fault manifests. This same intermittency accounts for the partial boot sequences observed after valid dumps.
 
-1. Fetch at `0x0100` → returns `0xF3` (DI) - **confirmed differs from valid `0x00`**
-2. Subsequent fetches at `0x0101`, `0x0102` ... `0x01FF` → all return **the aliased byte from `0x0100`**
-3. The CPU executes 255 copies of the same (incorrect) opcode
-4. When the PC crosses into `0x0200`, A9 changes state - chip delivers the byte from `0x0200`
-5. This process produces an incoherent instruction stream with no valid bank-switch sequence
-6. MBC3 receives malformed parameters → GBC firmware stack underflow → **`"No windows available for popping"`**
+### 7.6 Possible Physical Failure Mechanisms
 
-### 7.5 Why Dumps Are Intermittently Valid
+Several internal failure mechanisms may plausibly produce the observed addressing behaviour. The current evidence does not permit differentiation between them. All require a fault internal to the ROM device itself.
 
-The intermittent nature - 2 valid, 2 invalid dumps - indicates the stuck condition is **not a complete open circuit** but a **high-impedance / intermittent fault**. Under certain conditions (contact pressure during insertion, die temperature, supply voltage marginal state), the address lines may briefly resolve correctly, producing a valid dump. Under other conditions, the lines float to ground and the fault manifests.
+| Candidate mechanism | Assessment |
+|---|---|
+| Bond-wire or die-interconnect degradation | Plausible |
+| Internal address-decoder transistor degradation | Plausible |
+| Package-level internal connection fault | Plausible |
+| PCB solder joint defect | Unlikely -- excluded by board migration test |
+| External address bus fault | Unlikely -- excluded by component substitution testing |
 
-This same intermittency explains the partial boot sequences observed after valid dumps: the chip was in a temporarily functional state during those sessions.
+### 7.7 Conclusion
 
-### 7.6 Physical Fault Location Candidates
+Based on all available observations, the fault is most likely caused by an internal ROM-device failure affecting address resolution of bits A0-A7. Although the exact semiconductor-level defect remains unverified, the collected evidence consistently points to the ROM chip as the origin of the malfunction. No PCB-level repair method, component substitution, or rework procedure tested during this investigation was capable of eliminating the fault.
 
-| Location | Mechanism | Likelihood |
-|---|---|---|
-| Bond wire fracture (A0–A7 common bus) | Mechanical fatigue, 25-year thermal cycling | High |
-| Input transistor oxide breakdown (address decoder) | Gate oxide degradation, ESD history | Medium |
-| Solder joint on ROM package pin | Cold joint, vibration fracture | Low (migrated with chip across boards) |
-| Address line short to GND inside package | Internal contamination or delamination | Low |
-
-> A solder joint fault on the PCB pad is effectively ruled out by the board-swap test - the fault migrated with the ROM chip to a fresh PCB with verified pads.
+Conclusive verification would require destructive semiconductor analysis -- either decapping the ROM package for direct die inspection under magnification, or X-ray microscopy at sufficient resolution to visualise the bond wire layer (typically 20-50 µm diameter for consumer-grade packages of this era).
 
 ---
 
 ## 8. Secondary Boot Symptoms Explained
 
-Following sessions where valid checksums were obtained, the cartridge was tested in-system. The resulting symptoms are fully explained by the intermittent addressing fault producing a partially coherent execution state:
+Following sessions where valid checksums were obtained, the cartridge was tested in-system. The resulting symptoms are consistent with the proposed address-resolution fault model producing a partially coherent execution state:
 
 <div align="center">
 
@@ -325,7 +334,7 @@ Following sessions where valid checksums were obtained, the cartridge was tested
 
 </div>
 
-| Symptom | Mechanism |
+| Symptom | Consistent with fault model |
 |---|---|
 | **Save menu without battery** | SRAM validity check reads aliased ROM reference byte → false-positive match → save menu rendered |
 | **Autonomous A-button input** | Joypad polling subroutine reads aliased opcode → always-pressed loop |
@@ -405,9 +414,9 @@ The GBC address bus is 16 bits wide, giving a directly addressable range of 65,5
 
 A bank switch is performed by the CPU writing the desired bank number to the MBC3's bank register. This is not a RAM write -- it is a write to the ROM address space, which the MBC3 intercepts and interprets as a control signal. The actual ROM data at that address is irrelevant; the write value selects the next active bank.
 
-With address lines A0-A7 stuck low on the ROM die, the chip cannot resolve individual byte addresses within any 256-byte window. Every fetch from address `0xYYZZ` where `ZZ != 0x00` returns the byte stored at `0xYY00` instead. This affects both the fixed bank and all switched banks.
+With address lines A0-A7 unresolved on the ROM die -- under the proposed fault model -- the chip cannot distinguish individual byte addresses within any 256-byte window. Every fetch from address `0xYYZZ` where `ZZ != 0x00` would return the byte stored at `0xYY00` instead. This affects both the fixed bank and all switched banks.
 
-The boot sequence proceeds as follows under fault conditions:
+The boot sequence would proceed as follows under these fault conditions:
 
 1. The BIOS performs the Nintendo logo check by reading the fixed bank header at `0x0104-0x0133`. These addresses all have non-zero low bytes, so under the stuck-line fault every read returns the byte from the nearest `0x??00` boundary. In this case, the logo check passes intermittently -- when the chip is in its temporarily functional state -- which explains why the BIOS hands off execution rather than halting at the logo stage.
 
