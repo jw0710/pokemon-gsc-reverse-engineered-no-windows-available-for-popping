@@ -315,6 +315,8 @@ Based on all available observations, the fault is most likely caused by an inter
 
 Conclusive verification would require destructive semiconductor analysis -- either decapping the ROM package for direct die inspection under magnification, or X-ray microscopy at sufficient resolution to visualise the bond wire layer (typically 20-50 µm diameter for consumer-grade packages of this era).
 
+**Current status:** Contact has been initiated with academic and research institutions to explore the feasibility of non-destructive X-ray microscopy of the ROM package. If successful, imaging results will be added to this repository as a supplementary section. The fault model presented here should be treated as the best-fit interpretation of the available data until physical verification is obtained or refuted.
+
 ---
 
 ## 8. Secondary Boot Symptoms Explained
@@ -370,10 +372,10 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 ╔══════════════════════════════════════════════════════════════╗
 ║  VERDICT: IRREPARABLE                                        ║
 ║                                                              ║
-║  Fault: Stuck address lines A0–A7, ROM die                   ║
-║  Cause: Internal semiconductor degradation (25-year wear)    ║
-║  Fix:   ROM chip replacement only                            ║
-║  Availability: No off-the-shelf solution                     ║
+║  Fault:   Probable internal ROM address-resolution failure   ║
+║  Cause:   Physical mechanism unverified (under investigation)║
+║  Fix:     ROM chip replacement only                          ║
+║  Status:  X-ray / semiconductor analysis pending             ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
@@ -389,7 +391,7 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 | Reddit r/Gameboy | Various | Anecdotal mentions, no analysis | none |
 | Reddit r/GameboyRepair | Various | Isolated reports, unresolved | none |
 | GameBoy Forum communities | Various | Rare mentions | none |
-| **This repository** | **2025** | **Full forensic hardware analysis** | **Stuck address lines A0-A7** |
+| **This repository** | **2026** | **Hardware fault isolation + binary dump analysis** | **Probable address-resolution failure (A0-A7), physical mechanism under investigation** |
 
 ### 10.2 The Glitch City Analysis (2010)
 
