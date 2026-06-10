@@ -1,20 +1,19 @@
 <div align="center">
 
 # DMG-KGDU10 - *"No Windows Available for Popping"*
-### Forensic Hardware Failure Analysis · Pokémon Gold · Game Boy Color Cartridge
+### Hardware Fault Isolation and Binary Analysis · Pokemon Gold / Silver / Crystal · Game Boy Color
 
 ---
 
-![Status](https://img.shields.io/badge/status-concluded-critical?style=flat-square&color=dc2626)
+![Status](https://img.shields.io/badge/status-active_investigation-orange?style=flat-square)
 ![ROM](https://img.shields.io/badge/ROM-POKEMON__GLD-blue?style=flat-square)
 ![PCB](https://img.shields.io/badge/PCB-DMGKGDU10--0-blue?style=flat-square)
 ![Mapper](https://img.shields.io/badge/mapper-MBC3_+_RTC-blue?style=flat-square)
 ![ROM Size](https://img.shields.io/badge/ROM-2_MiB-blue?style=flat-square)
-![Dumps](https://img.shields.io/badge/dumps_analysed-4-yellow?style=flat-square)
-![Diffs](https://img.shields.io/badge/differing_bytes-1313-orange?style=flat-square)
-![Alignment](https://img.shields.io/badge/0x100_alignment-100%25-red?style=flat-square)
+![Dumps](https://img.shields.io/badge/dump_sessions-6-yellow?style=flat-square)
+![Fault](https://img.shields.io/badge/fault-AC_parametric-red?style=flat-square)
+![Xray](https://img.shields.io/badge/X--ray_analysis-pending-orange?style=flat-square)
 ![License](https://img.shields.io/badge/license-CC_BY--NC--SA_4.0-green?style=flat-square)
-![Author](https://img.shields.io/badge/author-NostaMods-blueviolet?style=flat-square)
 
 </div>
 
@@ -28,12 +27,18 @@ This repository presents a complete forensic hardware analysis of a defective **
 No windows available for popping
 ```
 
-Through systematic component substitution across two independent PCB assemblies, electrical verification, and structured binary analysis of four ROM dumps, the fault was isolated to the Mask-ROM device and a probable address-resolution failure model was developed. The initial hypothesis of a floating-bit Mask-ROM cell degradation was reassessed following quantitative dump analysis, which revealed a highly structured and deterministic corruption pattern more consistent with a fault affecting the lower ROM address bits (A0-A7) than with random bit degradation.
+Through systematic component substitution across two independent PCB assemblies, electrical verification, and structured binary analysis of ROM dumps taken under varying thermal and contact conditions, the fault was isolated to the Mask-ROM device. The investigation produced a definitive finding.
 
-At the time of writing, no prior technical documentation of this failure mode exists in the public domain beyond a single partially relevant thread on Glitch City Laboratories (2010) and isolated Reddit reports with no root-cause analysis. This repository is intended as a reproducible reference for hardware repair technicians and retro hardware researchers.
+Under clean contact conditions at ambient temperature, the chip delivers a bitperfect ROM dump with zero differing bytes and a fully matching computed checksum -- confirmed against an independently obtained reference. The boot failure persists regardless. This result conclusively establishes the fault as a **pure AC parametric failure**: the ROM device can resolve every address correctly under the controlled read timing of a flasher, but cannot do so under the continuous cycle demands of the running Z80 at 4.19 MHz. No static data corruption is present. The failure is exclusively timing-domain.
+
+Earlier dump sessions that produced structured 0x100-aligned corruption patterns are now understood to reflect marginal contact conditions rather than the chip's true static read capability. They remain documented as they characterise the fault's behaviour under degraded contact states, but they are not the primary evidence for the fault classification.
+
+At the time of writing, no prior technical documentation of this failure mode exists in the public domain. This repository is intended as a reproducible reference for hardware repair technicians and retro hardware researchers.
 
 > **Verdict: The cartridge is irreparable under standard workshop conditions.**
-> The fault is internal to the ROM device and cannot be resolved through any form of component substitution, reflowing, or PCB-level intervention. The exact semiconductor-level mechanism remains unverified without destructive analysis.
+> The ROM device passes static integrity checks but fails under dynamic system timing. The fault is internal to the chip and cannot be resolved through component substitution, reflowing, or any PCB-level intervention. The exact physical mechanism remains unverified.
+>
+> **This is an active investigation.** The fault has been classified as an AC parametric failure through empirical testing. Physical verification of the underlying semiconductor defect via X-ray microscopy is currently being pursued. This repository will be updated as further findings become available.
 
 ---
 
@@ -131,14 +136,14 @@ Session 7 - Binary diff analysis (invalid vs. reference dump)
 
 ### Equipment Used
 
-| Tool | Purpose |
-|---|---|
-| Hot air rework station | Component removal / installation |
-| Multimeter | Voltage, continuity, resistance verification |
-| GB cartridge flasher | ROM dumping (×4 sessions) |
-| Verified GBC reference unit | Boot testing |
-| Donor DMGKGDU10-0 board | PCB-swap substitution test |
-| Python 3.x + custom script | Binary diff and fault characterization |
+| Tool | Details | Purpose |
+|---|---|---|
+| Hot air rework station | 300°C, top-side application | Component removal, thermal activation testing |
+| Multimeter | -- | Voltage, continuity, resistance verification |
+| GB cartridge flasher | GBFlash v1.3, Firmware L13, FlashGBX v4.3 | ROM dumping |
+| Verified GBC reference unit | -- | Boot testing |
+| Donor DMGKGDU10-0 board | Clean edge connector | PCB-swap substitution test |
+| Python 3.x + rom_diff_analysis.py | Custom, see repository | Binary diff and fault characterisation |
 
 ---
 
@@ -161,13 +166,19 @@ The PCB-swap test (Session 5) is the definitive isolation step. With every compo
 
 ## 5. ROM Dump Analysis
 
-Four dumps were performed under identical conditions with no hardware changes between sessions.
+Dumps were performed across multiple sessions under varying thermal conditions. All dumps used the same FlashGBX hardware and cartridge connector.
 
-### 5.1 Header Fields (both dumps)
+### 5.1 Important Note on Checksum Reporting
 
-All header fields are **identical** between the invalid and reference dumps - including Nintendo Logo, title string, mapper type, ROM/RAM size, region, version byte, and header checksum. The two dumps are confirmed to be the same ROM version and revision.
+FlashGBX reads the global checksum value directly from the ROM header bytes at `0x014E-0x014F` and stores it in the output file. It does not independently compute and verify the checksum against the read data. As a result, all dumps -- including corrupted ones -- report `0xDC97` as the stored checksum field, because that value is itself stored at a `0x????0E`/`0x????0F` address which the chip reads correctly even under the address-resolution fault.
 
-| Field | Invalid Dump | Valid Reference | Match |
+The actual data integrity of each dump must be assessed by computing the checksum independently from the file contents, which is what `rom_diff_analysis.py` does.
+
+### 5.2 Header Fields
+
+All header fields are identical between defective and reference dumps, confirming both are the same ROM version and revision.
+
+| Field | Defective dumps | Valid Reference | Match |
 |---|---|---|---|
 | Title | `POKEMON_GLD` | `POKEMON_GLD` | ok |
 | CGB Flag | `0x80` | `0x80` | ok |
@@ -175,21 +186,27 @@ All header fields are **identical** between the invalid and reference dumps - in
 | ROM Size | `0x06` (2 MiB) | `0x06` | ok |
 | Version | `0x00` | `0x00` | ok |
 | Header Checksum | `0x4C` | `0x4C` | ok |
-| **Global Checksum** | **`0xDC97`** (2/4 dumps) | **`0xDC97`** | intermittent (see notes) |
-| **Entry Point** | **`F3 C3 C6 05`** | **`00 C3 C6 05`** | DIFFERS |
+| **Global Checksum (stored)** | **`0xDC97`** (all dumps) | **`0xDC97`** | ok (see note above) |
+| **Global Checksum (computed)** | **varies** | **`0xDC97`** | MISMATCH in all defective dumps |
 
-> **Note on Entry Point:** The first byte of the entry point vector differs - `0xF3` (DI - Disable Interrupts) vs. `0x00` (NOP). This is the first byte fetched by the CPU on boot and its corruption is a direct contributor to the subsequent execution fault chain.
+### 5.3 Dump Sessions and Results
 
-### 5.2 Dump Checksum Results
+| Session | Thermal state | Board condition | Stored CRC | Computed CRC | Diff bytes | 0x100-aligned | Entry point | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Cold 1 | Ambient | Clean board | `0xDC97` | `0xDAA3` | 1313 | 100% | FAIL | Reference cold baseline |
+| Cold 2 | Ambient | Clean board | `0xDC97` | `0xDAA3` | 1313 | 100% | FAIL | Identical to Cold 1 |
+| Warm 1 | ~300°C / 15s | Clean board | `0xDC97` | `0x3826` | 1230 | 1.9% | ok | Thermal activation |
+| Warm 2 | ~300°C / 15s | Clean board | `0xDC97` | `0xDB22` | 2 | 50% | ok | Near-complete recovery |
+| Confounded | Ambient | Damaged edge connector | `0x4011` | `0x1AC0` | 249023 | 0.4% | FAIL | Contaminated -- see note |
+| **Cold 3** | **~20°C (ultrasonic bath)** | **Clean board, fresh reflow** | **`0xDC97`** | **`0xDC97`** | **0** | **n/a** | **ok** | **Bitperfect -- see note** |
 
-| Dump # | Global Checksum | Valid | Notes |
-|---|---|---|---|
-| 1 | `0xF004` | no | Invalid |
-| 2 | `0xF004` | no | Invalid - identical to Dump 1 |
-| 3 | `0xDC97` | ok | Valid |
-| 4 | `0xDC97` | ok | Valid - identical to Dump 3 |
+The shift from 1313 structured diffs at ambient to 2 near-random diffs under thermal activation was initially interpreted as the central finding of the thermal investigation. However, Cold 3 supersedes this interpretation: under clean contact conditions after fresh reflow, the chip delivered a bitperfect dump at ambient temperature with zero differing bytes and a fully matching computed checksum. The boot failure persists nonetheless.
 
-50% valid / 50% invalid under zero-variable conditions. The consistent `0xF004` value (not random variance) and the subsequent binary analysis reframe this as **intermittent address resolution**, not random bit noise.
+This result reframes the fault model entirely. The earlier cold dumps (Cold 1/2) with their 0x100-aligned corruption pattern were not representative of the chip's true static read capability -- they reflected a marginal contact state. Cold 3 demonstrates that the fault is **not a static data corruption issue at all**. The chip can deliver every byte correctly under controlled read conditions. The failure is exclusively a dynamic timing fault: the chip cannot resolve addresses reliably under the continuous read cycle demands of the running Z80 at 4.19 MHz, even though it can resolve them correctly under the slower, controlled timing of the flasher.
+
+**Note on the confounded dump:** One dump session was performed cold on a donor board with heavily corroded and damaged edge connector pins. This session produced 249,023 differing bytes with a heavily non-uniform bit-flip distribution consistent with multiple data lines at high impedance. This dump represents two simultaneous independent fault sources and is not used as evidence for the chip-level fault model.
+
+**Note on Cold 3:** CRC32 `4889dfaa` matches the FlashGBX No-Intro database entry for Pokemon Gold Germany. The SHA-1 does not match the No-Intro reference (`D8B8A360...`) as that entry corresponds to a different regional revision. The dump is confirmed bitperfect against the independently obtained reference dump used throughout this analysis (0 byte differences).
 
 ---
 
@@ -261,61 +278,89 @@ Address line:  A20  A19  ...  A8   A7   A6  ...  A1   A0
 Bit weight:    1M   512K ...  256  128   64  ...   2    1
 ```
 
-### 7.3 Most Consistent Fault Model
+### 7.3 Fault Classification: AC Parametric Failure
 
-The observed behaviour is most consistent with a fault affecting resolution of the lower ROM address bits (A0-A7). Under this model, accesses within each 256-byte address block may become aliased to a common address, causing deterministic corruption throughout the ROM space while preserving higher-order addressing. Such behaviour would explain:
+The definitive evidence for fault classification comes from dump session Cold 3: a bitperfect dump obtained at ambient temperature under clean contact conditions, with zero differing bytes against the reference, confirmed by matching computed checksum and CRC32. The boot failure persists on this same cartridge.
 
-- The exclusive occurrence of differences at 0x100-aligned locations
-- The widespread distribution of corruption across 101 of 128 ROM banks
-- The absence of evidence for a stuck data line (uniform bit-flip distribution across D0-D7)
-- The intermittent transition between valid and invalid dumps
+This result rules out static data corruption as a contributing factor to the boot failure. The chip can resolve every address correctly and deliver every byte accurately when the access timing is controlled. The fault manifests exclusively when the chip must respond to continuous read cycles at system clock rate.
 
-To illustrate: if A0-A7 are not resolved correctly, the chip cannot distinguish between addresses within any 256-byte window. Every access to address `0xYYZZ` where `ZZ != 0x00` would instead read from `0xYY00`.
+This is the definition of an **AC parametric failure** in semiconductor testing terminology: a device that passes DC functionality tests (correct data under static or slow-access conditions) but fails under the timing constraints of its operational environment (correct data not guaranteed within the required setup and hold window at operating frequency).
 
-```
-Requested:  0x001234  (valid byte at this location in reference dump)
-Received:   0x001200  (aliased -- lower 8 address bits not resolved)
-                              ↑↑↑↑↑↑↑↑
-                        resolution failure
-```
+The earlier cold dumps (Cold 1/2) which showed 0x100-aligned corruption are now understood as a contact-condition artefact. Under marginal edge connector contact, the address lines were not being driven cleanly to the chip, producing the observed aliasing pattern. Under good contact conditions, the chip reads correctly. The underlying chip fault only manifests at system clock speed.
 
-The flasher increments the address counter linearly. Under this fault, addresses `0x000000`-`0x0000FF` all return the byte at `0x000000`, addresses `0x000100`-`0x0001FF` return the byte at `0x000100`, and so on. When compared against a correct dump, every difference falls at a `0x????00` address -- exactly what the analysis shows.
-
-While the available evidence strongly supports this model, the exact physical failure mechanism cannot be conclusively determined without destructive semiconductor analysis.
+The distinction between DC and AC failure has direct implications for physical fault location. A DC stuck fault (permanently incorrect logic level) would affect all reads equally. An AC parametric fault (marginal timing) implies the fault is in the **propagation path or input response time** of the address lines -- consistent with a bond-wire crack or oxide-layer contact fault that adds resistance to the signal path, slowing the rise/fall time of the address signal below what the chip's input comparator can resolve within a Z80 read cycle.
 
 ### 7.4 Boot Failure Under This Model
 
-The Z80 CPU begins execution at the entry point vector (`0x0100`). Under the proposed fault model:
+The GBC boot ROM occupies `0x0000-0x00FF` and is mapped over the cartridge during startup -- the cartridge ROM is not read in this range during the boot sequence. Control transfers to the cartridge entry point at `0x0100` after the boot ROM completes the logo check and header verification.
 
-1. Fetch at `0x0100` returns `0xF3` (DI) -- confirmed to differ from the valid value `0x00`
-2. Subsequent fetches at `0x0101` through `0x01FF` all alias to the byte at `0x0100`
-3. The CPU executes up to 255 copies of the same aliased opcode before A8 transitions
-4. This produces an incoherent instruction stream with no valid bank-switch sequence
-5. The MBC3 receives malformed parameters, the GBC firmware stack underflows, and the system emits `"No windows available for popping"`
+Under the proposed AC parametric fault model, the Z80 begins instruction fetch from `0x0100` at system clock rate. The address lines responsible for resolving the lower byte of each address fail to settle within the required read cycle, producing unstable data on the bus. The resulting instruction stream is incoherent. The first malformed MBC3 bank-switch operation passes an invalid parameter to the GBC memory manager, which finds no matching window stack entry and emits `"No windows available for popping"`.
 
-### 7.5 Intermittency
+The cold-state dump confirms that `0x0100` reads as `0xF3` (DI) rather than the correct `0x00` (NOP), which is consistent with this model: under static dump timing, some addresses resolve to incorrect but stable values; under dynamic Z80 timing, the failure mode may differ in character but the result is the same incoherent execution.
 
-The 50% valid dump rate -- two valid, two invalid, under otherwise identical conditions -- indicates the fault is not a complete open circuit but an intermittent or high-impedance condition. Under certain states (die temperature, contact conditions, supply margin) the address lines resolve correctly and the chip delivers a valid dump. Under other conditions the fault manifests. This same intermittency accounts for the partial boot sequences observed after valid dumps.
+### 7.5 Thermal Activation Results
+
+Applying 300°C hot air for approximately 15 seconds to the ROM package from above produced a measurable and reproducible improvement in dump integrity:
+
+| State | Diff bytes vs reference | 0x100-aligned | Computed checksum | Entry point |
+|---|---|---|---|---|
+| Cold | 1313 | 100% | `0xDAA3` | FAIL |
+| Warm (session 1) | 1230 | 1.9% | `0x3826` | ok |
+| Warm (session 2) | 2 | 50% | `0xDB22` | ok |
+
+Three observations from this data are significant:
+
+**The alignment pattern disappears under heat.** Cold dumps show 100% 0x100-alignment -- a deterministic DC-like stuck condition. Warm dumps show near-random distribution across all 256 low-byte values. This indicates the fault transitions from a DC stuck state at ambient temperature to a marginal high-impedance state under thermal expansion, allowing intermittent correct resolution during slow dump reads.
+
+**The two dumps are not reproducible.** Cold sessions 1 and 2 produce identical results (1313 diffs, same addresses). Warm sessions produce different results from each other (1230 vs 2 diffs, minimal address overlap). This irreproducibility under heat is consistent with a contact fault that varies with the exact thermal expansion state of the package at the moment of reading.
+
+**Boot failure persists despite near-perfect dump recovery.** Warm session 2 produced only 2 differing bytes (`0x000000` and `0x000001`), both in the region covered by the GBC boot ROM during startup and therefore not directly executed on boot. Despite this, the cartridge continued to exhibit the boot failure. This is the primary evidence for an AC parametric fault: the chip can deliver correct data under static read conditions but fails under the dynamic timing of the running system.
+
+The thermal test also confirms with high confidence that the fault is located within the ROM chip package itself. A PCB-level solder joint fault would not respond to heat applied to the chip body in this way; that possibility was already excluded by the board migration test.
 
 ### 7.6 Possible Physical Failure Mechanisms
 
-Several internal failure mechanisms may plausibly produce the observed addressing behaviour. The current evidence does not permit differentiation between them. All require a fault internal to the ROM device itself.
+| Candidate mechanism | DC or AC | Assessment |
+|---|---|---|
+| Bond-wire crack with marginal contact resistance | AC | Most consistent with all observations |
+| Oxide-layer breakdown on address input pad | AC | Consistent |
+| Internal address-decoder transistor threshold shift | DC or AC | Possible |
+| Package delamination causing intermittent die contact | AC | Possible |
+| PCB solder joint defect | DC | Excluded by board migration test |
+| External address bus fault | DC | Excluded by component substitution |
 
-| Candidate mechanism | Assessment |
-|---|---|
-| Bond-wire or die-interconnect degradation | Plausible |
-| Internal address-decoder transistor degradation | Plausible |
-| Package-level internal connection fault | Plausible |
-| PCB solder joint defect | Unlikely -- excluded by board migration test |
-| External address bus fault | Unlikely -- excluded by component substitution testing |
+The AC parametric nature of the fault -- recoverable under slow dump reads, persistent under system clock -- most strongly implicates a physical contact fault with marginal resistance rather than a transistor-level failure, which would typically present as a pure DC fault regardless of access speed.
 
 ### 7.7 Conclusion
 
-Based on all available observations, the fault is most likely caused by an internal ROM-device failure affecting address resolution of bits A0-A7. Although the exact semiconductor-level defect remains unverified, the collected evidence consistently points to the ROM chip as the origin of the malfunction. No PCB-level repair method, component substitution, or rework procedure tested during this investigation was capable of eliminating the fault.
+The fault is most likely an AC parametric failure of an address-domain connection internal to the ROM package, affecting resolution of A0-A7 under dynamic timing conditions. The fault presents as a deterministic DC-like stuck condition at ambient temperature but transitions to a marginal high-impedance state under thermal activation, allowing static read recovery while the dynamic boot failure persists.
 
-Conclusive verification would require destructive semiconductor analysis -- either decapping the ROM package for direct die inspection under magnification, or X-ray microscopy at sufficient resolution to visualise the bond wire layer (typically 20-50 µm diameter for consumer-grade packages of this era).
+No PCB-level repair method, component substitution, or rework procedure tested during this investigation was capable of eliminating the fault. Thermal activation improves dump quality but does not restore boot functionality, confirming the fault is timing-sensitive rather than purely contact-resistance-driven.
 
-**Current status:** Contact has been initiated with academic and research institutions to explore the feasibility of non-destructive X-ray microscopy of the ROM package. If successful, imaging results will be added to this repository as a supplementary section. The fault model presented here should be treated as the best-fit interpretation of the available data until physical verification is obtained or refuted.
+Conclusive physical verification would require X-ray microscopy at sufficient resolution to image bond wires (20-50 µm diameter for consumer packages of this era), or destructive decapping for direct die inspection.
+
+### 7.8 Open Research Questions
+
+The electrical characterisation of this fault is considered complete. The following questions remain open and are actively being pursued:
+
+**Physical mechanism verification**
+
+The AC parametric fault classification is well-supported by the dump data and boot behaviour, but the specific physical defect -- bond-wire crack, oxide-layer breakdown on an address input, package delamination, or other internal connection fault -- has not been directly observed. X-ray microscopy of the ROM package would allow non-destructive visualisation of the bond wire layer and could confirm or refute the bond-wire hypothesis.
+
+Contact has been initiated with academic institutions in the region to explore access to X-ray microscopy equipment with sufficient resolution for this application. If imaging is obtained, results will be added to this repository as a dedicated supplementary section including annotated images and any revision to the fault model they require.
+
+**Replication in other cartridges**
+
+It is unknown whether this fault pattern has occurred in other DMGKGDU10-0 cartridges. The combination of boot failure with a passing static dump is an unusual presentation that may have been misdiagnosed as a board-level fault in other repair cases. If you have encountered a similar cartridge, opening an Issue or Discussion on this repository with your dump data would contribute meaningfully to establishing whether this is an isolated failure or a known degradation pattern in this ROM revision.
+
+**Current status summary**
+
+| Question | Status |
+|---|---|
+| Fault isolated to ROM chip | Confirmed |
+| Fault classified as AC parametric | Confirmed |
+| Physical mechanism identified | Pending -- X-ray analysis in progress |
+| Fault replicated in other cartridges | Unknown |
 
 ---
 
@@ -370,12 +415,12 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║  VERDICT: IRREPARABLE                                        ║
+║  VERDICT: IRREPARABLE -- INVESTIGATION ONGOING               ║
 ║                                                              ║
-║  Fault:   Probable internal ROM address-resolution failure   ║
-║  Cause:   Physical mechanism unverified (under investigation)║
-║  Fix:     ROM chip replacement only                          ║
-║  Status:  X-ray / semiconductor analysis pending             ║
+║  Fault:   AC parametric failure, ROM address domain          ║
+║  Static:  Chip passes bitperfect dump under clean conditions  ║
+║  Dynamic: Boot fails at Z80 system clock rate (4.19 MHz)     ║
+║  Cause:   Physical mechanism unverified -- X-ray pending     ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
@@ -393,15 +438,57 @@ All symptoms resolved on soft reset, confirming they are runtime state corruptio
 | GameBoy Forum communities | Various | Rare mentions | none |
 | **This repository** | **2026** | **Hardware fault isolation + binary dump analysis** | **Probable address-resolution failure (A0-A7), physical mechanism under investigation** |
 
-### 10.2 The Glitch City Analysis (2010)
+### 10.2 Known Software Triggers
 
-The only substantive prior investigation of this error was published in July 2010 by forum user GARYM9 on Glitch City Laboratories. The analysis was conducted entirely in software using a memory viewer on a running emulator. The findings are reproduced here for cross-validation purposes.
+Before examining the hardware fault, it is worth establishing the full documented set of conditions under which this error can appear through software means alone. Two sources document this comprehensively.
 
-GARYM9 identified that the error is triggered when a specific RAM address holds an unexpected value at the moment a menu window attempts to close. In Gold and Silver, the relevant address is `CEA8`. Under normal operation, this byte transitions between two distinct values as a menu window opens and closes. If both states hold the same value -- meaning the open-state transition never occurred correctly -- the window-pop routine finds no valid frame to pop from its stack and emits the error string. In Crystal, the same mechanism uses two addresses (`CF71` and `CF72`) rather than one, providing an additional check.
+Bulbapedia describes the error as appearing "when an event attempts to bring up a message window yet the specified text/function is undefined", and specifically notes the HM06 outside TM/HM pocket trigger. The Glitch City Wiki documents the RAM manipulation method in detail.
 
-The conclusion drawn was that this is an intentional debug trap built into the game engine: a guard that detects broken window state and halts cleanly rather than corrupting game state silently.
+The following table summarises all known software-triggered occurrences across the Generation II titles:
 
-This analysis is internally consistent and technically credible. The behavior can be reproduced by direct RAM manipulation, which confirms the software path exists and functions as described.
+| Game | Trigger | RAM address(es) | Notes |
+|---|---|---|---|
+| Gold / Silver | RAM manipulation | `CEA8` set to `0xFD` | Reliably reproduces error on start menu close |
+| Crystal | RAM manipulation | `CF71` = `0xFD`, `CF72` = `0xDF` | Requires both addresses; Crystal uses two-byte check |
+| Gold / Silver | HM06 outside TM/HM pocket | `CEA8` (indirectly) | Game jumps to `0x3ACB`, opens phantom PC; closing PC then start menu triggers error |
+| Crystal | Out of bounds movement | Unknown | Documented but memory path not fully characterised |
+| Crystal (JPN) | Title screen | `CF65` set to specific values | Japanese version only; appears on title screen |
+
+The error in Gold and Silver can be replicated by changing memory address `CEA8` to `0xFD` while the start menu is open, then closing it. In Crystal, the same result requires both `CF71` set to `0xFD` and `CF72` set to `0xDF`. These addresses are normally set to these values when the start menu is closed -- the error fires when the window-pop routine is called with the sentinel already in the closed state, meaning no open window record exists to pop.
+
+The underlying mechanism is consistent across all cases: the window sentinel byte holds a value indicating no window is open at the moment a close operation is requested. The game engine detects this as an invalid state and emits the error rather than proceeding.
+
+### 10.3 Replication Comparison: Software vs. Hardware Trigger
+
+A natural question is whether the hardware fault described in this repository produces the same observable result through the same internal path as the software triggers above. The answer is yes in outcome but different in entry point -- and this distinction matters.
+
+**Software trigger path:**
+
+```
+Game boots normally
+    -> Window management system initialised correctly (CEA8 = valid state)
+    -> Player action or RAM manipulation sets CEA8 to closed-state value
+    -> Start menu close requested
+    -> Window-pop routine finds no open window record
+    -> Error emitted
+```
+
+**Hardware fault path (proposed model):**
+
+```
+ROM delivers aliased instruction data from boot
+    -> Boot code executes incorrectly -- window management init is never performed
+    -> CEA8 is never written with the correct open-state sentinel
+    -> First menu operation requests a window pop
+    -> Window-pop routine finds no valid record (was never created)
+    -> Error emitted
+```
+
+Both paths arrive at the same guard condition in the game engine. The software triggers corrupt the sentinel value after correct initialisation; the hardware fault prevents correct initialisation from occurring in the first place. The error string is the same because the guard condition is the same -- but the hardware case cannot be reproduced by any in-game action or cheat device, because the fault occurs before the game engine is ever in a valid state.
+
+**Emulator-based replication attempt**
+
+A practical way to cross-validate the hardware fault model would be to load the invalid dump directly into an emulator (BGB or Gambatte are commonly used for accuracy) and observe whether the same error appears. Under the proposed model, an emulator running the invalid dump should reproduce the boot failure -- because the corrupted instruction stream would be present in the dump data itself, not in the physical chip. If a valid dump runs correctly in the same emulator, this would confirm the fault is in the dump data and by extension in the physical ROM. This test has not yet been conducted and would be a useful addition to this investigation.
 
 ### 10.3 Reconciliation with the Hardware Fault Model
 
@@ -516,7 +603,9 @@ The script produces a full structured report including header comparison, bank-l
 - **Game Boy CPU Manual (Z80 variant):** https://archive.org/details/GameBoyProgManVer1.1
 
 ### Prior Art
-- Glitch City Laboratories Archives -- "G/S/C No windows available for popping explained" (GARYM9, 2010): https://archives.glitchcity.info/forums/board-108/thread-6228/page-0.html
+- Glitch City Laboratories Archives -- "G/S/C No windows available for popping explained" (GARYM9, Torchickens, 2010): https://archives.glitchcity.info/forums/board-108/thread-6228/page-0.html
+- Glitch City Wiki -- "Event data debugging messages": https://glitchcity.wiki/wiki/Event_data_debugging_messages
+- Bulbapedia -- "Error message, Generation II": https://bulbapedia.bulbagarden.net/wiki/Error_message#Generation_II
 - Reddit r/Gameboy: https://www.reddit.com/r/Gameboy
 - Reddit r/GameboyRepair: https://www.reddit.com/r/GameboyRepair
 
